@@ -25,6 +25,7 @@ import { usageHandlers } from "./server-methods/usage.js";
 import { voicewakeHandlers } from "./server-methods/voicewake.js";
 import { webHandlers } from "./server-methods/web.js";
 import { wizardHandlers } from "./server-methods/wizard.js";
+import { channelPairingHandlers } from "./server-methods/pairing.js";
 
 const ADMIN_SCOPE = "operator.admin";
 const READ_SCOPE = "operator.read";
@@ -46,6 +47,8 @@ const PAIRING_METHODS = new Set([
   "device.token.rotate",
   "device.token.revoke",
   "node.rename",
+  "channel.pair.list",
+  "channel.pair.approve",
 ]);
 const ADMIN_METHOD_PREFIXES = ["exec.approvals."];
 const READ_METHODS = new Set([
@@ -188,6 +191,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...agentHandlers,
   ...agentsHandlers,
   ...browserHandlers,
+  ...channelPairingHandlers,
 };
 
 export async function handleGatewayRequest(
