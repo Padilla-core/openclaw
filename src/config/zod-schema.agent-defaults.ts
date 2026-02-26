@@ -10,24 +10,13 @@ import {
   BlockStreamingCoalesceSchema,
   CliBackendSchema,
   HumanDelaySchema,
+  TypingModeSchema,
 } from "./zod-schema.core.js";
 
 export const AgentDefaultsSchema = z
   .object({
-    model: z
-      .object({
-        primary: z.string().optional(),
-        fallbacks: z.array(z.string()).optional(),
-      })
-      .strict()
-      .optional(),
-    imageModel: z
-      .object({
-        primary: z.string().optional(),
-        fallbacks: z.array(z.string()).optional(),
-      })
-      .strict()
-      .optional(),
+    model: AgentModelSchema.optional(),
+    imageModel: AgentModelSchema.optional(),
     models: z
       .record(
         z.string(),
@@ -38,17 +27,6 @@ export const AgentDefaultsSchema = z
             params: z.record(z.string(), z.unknown()).optional(),
             /** Enable streaming for this model (default: true, false for Ollama to avoid SDK issue #1205). */
             streaming: z.boolean().optional(),
-            /** Per-model default thinking level (overrides global thinkingDefault). */
-            thinkingDefault: z
-              .union([
-                z.literal("off"),
-                z.literal("minimal"),
-                z.literal("low"),
-                z.literal("medium"),
-                z.literal("high"),
-                z.literal("xhigh"),
-              ])
-              .optional(),
           })
           .strict(),
       )
@@ -102,6 +80,8 @@ export const AgentDefaultsSchema = z
     compaction: z
       .object({
         mode: z.union([z.literal("default"), z.literal("safeguard")]).optional(),
+        reserveTokens: z.number().int().nonnegative().optional(),
+        keepRecentTokens: z.number().int().positive().optional(),
         reserveTokensFloor: z.number().int().nonnegative().optional(),
         maxHistoryShare: z.number().min(0.1).max(0.9).optional(),
         memoryFlush: z
@@ -137,15 +117,9 @@ export const AgentDefaultsSchema = z
     humanDelay: HumanDelaySchema.optional(),
     timeoutSeconds: z.number().int().positive().optional(),
     mediaMaxMb: z.number().positive().optional(),
+    imageMaxDimensionPx: z.number().int().positive().optional(),
     typingIntervalSeconds: z.number().int().positive().optional(),
-    typingMode: z
-      .union([
-        z.literal("never"),
-        z.literal("instant"),
-        z.literal("thinking"),
-        z.literal("message"),
-      ])
-      .optional(),
+    typingMode: TypingModeSchema.optional(),
     heartbeat: HeartbeatSchema,
     maxConcurrent: z.number().int().positive().optional(),
     subagents: z
@@ -172,6 +146,8 @@ export const AgentDefaultsSchema = z
         archiveAfterMinutes: z.number().int().positive().optional(),
         model: AgentModelSchema.optional(),
         thinking: z.string().optional(),
+        runTimeoutSeconds: z.number().int().min(0).optional(),
+        announceTimeoutMs: z.number().int().positive().optional(),
       })
       .strict()
       .optional(),
