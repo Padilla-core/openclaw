@@ -5,7 +5,6 @@ import type { EmbeddedPiSubscribeContext } from "./pi-embedded-subscribe.handler
 
 export function handleAutoCompactionStart(ctx: EmbeddedPiSubscribeContext) {
   ctx.state.compactionInFlight = true;
-  ctx.incrementCompactionCount();
   ctx.ensureCompactionPromise();
   ctx.log.debug(`embedded run compaction start: runId=${ctx.params.runId}`);
   emitAgentEvent({
@@ -25,8 +24,12 @@ export function handleAutoCompactionStart(ctx: EmbeddedPiSubscribeContext) {
       .runBeforeCompaction(
         {
           messageCount: ctx.params.session.messages?.length ?? 0,
+          messages: ctx.params.session.messages,
+          sessionFile: ctx.params.session.sessionFile,
         },
-        {},
+        {
+          sessionKey: ctx.params.sessionKey,
+        },
       )
       .catch((err) => {
         ctx.log.warn(`before_compaction hook failed: ${String(err)}`);
@@ -40,12 +43,16 @@ export function handleAutoCompactionEnd(
 ) {
   ctx.state.compactionInFlight = false;
   const willRetry = Boolean(evt.willRetry);
+  if (!willRetry) {
+    ctx.incrementCompactionCount?.();
+  }
   if (willRetry) {
     ctx.noteCompactionRetry();
     ctx.resetForCompactionRetry();
     ctx.log.debug(`embedded run compaction retry: runId=${ctx.params.runId}`);
   } else {
     ctx.maybeResolveCompactionWait();
+    clearStaleAssistantUsageOnSessionMessages(ctx);
   }
   emitAgentEvent({
     runId: ctx.params.runId,
@@ -73,5 +80,25 @@ export function handleAutoCompactionEnd(
           ctx.log.warn(`after_compaction hook failed: ${String(err)}`);
         });
     }
+  }
+}
+
+function clearStaleAssistantUsageOnSessionMessages(ctx: EmbeddedPiSubscribeContext): void {
+  const messages = ctx.params.session.messages;
+  if (!Array.isArray(messages)) {
+    return;
+  }
+  for (const message of messages) {
+    if (!message || typeof message !== "object") {
+      continue;
+    }
+    const candidate = message as { role?: unknown; usage?: unknown };
+    if (candidate.role !== "assistant") {
+      continue;
+    }
+    if (!("usage" in candidate)) {
+      continue;
+    }
+    delete (candidate as { usage?: unknown }).usage;
   }
 }
